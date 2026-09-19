@@ -20,6 +20,7 @@ custom_icons.load("right_surf", os.path.join(icons_dir, "right_surf.png"), "IMAG
 custom_icons.load("both", os.path.join(icons_dir, "both.png"), "IMAGE")
 custom_icons.load("left_ramp", os.path.join(icons_dir, "left_ramp.png"), "IMAGE")
 custom_icons.load("right_ramp", os.path.join(icons_dir, "right_ramp.png"), "IMAGE")
+custom_icons.load("straight", os.path.join(icons_dir, "straight.png"), "IMAGE")
 custom_icons.load("down", os.path.join(icons_dir, "down.png"), "IMAGE")
 custom_icons.load("up", os.path.join(icons_dir, "up.png"), "IMAGE")
 custom_icons.load("arc", os.path.join(icons_dir, "arc.png"), "IMAGE")
@@ -51,7 +52,7 @@ class SURGE_GenerateRamp(bpy.types.Operator):
     bl_idname = "surge.generate_ramp"
     bl_description = "Let's make a ramp"
     
-    ramp_name : bpy.props.StringProperty (name= "", description = 'This is the name of the visible mesh (the physics mesh uses this name with _phys appended to the end)', default = 'ramp')
+    ramp_name : bpy.props.StringProperty (name= "", description = 'Base name for the meshes (_VIS is visible and _CLIP is collision)', default = 'ramp')
     material_name : bpy.props.StringProperty (name= "", description = 'This should match the name of your .vtf file', default = 'default')
     
     style_enum : bpy.props.EnumProperty(
@@ -81,6 +82,7 @@ class SURGE_GenerateRamp(bpy.types.Operator):
         items= [ 
         ('Left', "Left", "Creates a ramp that turns left", custom_icons["left_ramp"].icon_id, 1),
         ('Right', "Right", "Creates a ramp that turns right", custom_icons["right_ramp"].icon_id, 2),
+        ('Straight', "Straight", "Creates a straight ramp", custom_icons["straight"].icon_id, 7),
         ('Up', "Up", "Creates a ramp that turns upwards", custom_icons["up"].icon_id, 3),
         ('Down', "Down", "Creates a ramp that turns downwards", custom_icons["down"].icon_id, 4),
         ('Dip', "Dip", "Creates a u shaped ramp", custom_icons["dip"].icon_id, 5),
@@ -140,9 +142,10 @@ class SURGE_GenerateRamp(bpy.types.Operator):
         row.label(text = "Smoothness:", icon_value = custom_icons["smoothness"].icon_id)
         row.prop(self, "smoothness")
         
-        row = box.row()
-        row.label(text = "Angle:", icon_value = custom_icons["angle"].icon_id)
-        row.prop(self, "angle")
+        if self.ramp_enum != 'Straight':
+            row = box.row()
+            row.label(text = "Angle:", icon_value = custom_icons["angle"].icon_id)
+            row.prop(self, "angle")
         
         row = box.row()
         row.label(text = "Size:", icon_value = custom_icons["size"].icon_id)
@@ -249,7 +252,10 @@ class SURGE_GenerateRamp(bpy.types.Operator):
         bpy.ops.mesh.select_all(action='SELECT')
         
         # Spin the edges into the correct shape depending on ramp type.
-        if self.ramp_enum == 'Right':
+        if self.ramp_enum == 'Straight':
+            for _ in range(self.smoothness):
+                bpy.ops.mesh.extrude_region_move(TRANSFORM_OT_translate={"value": (self.size / self.smoothness, 0, 0)})
+        elif self.ramp_enum == 'Right':
             bpy.ops.mesh.spin(steps=self.smoothness, dupli=False, angle=self.angle * math.pi / 180, use_auto_merge=True, use_normal_flip=False, center=(0, self.size, 0), axis=(0.0, 0.0, 1))
         elif self.ramp_enum == 'Left':
             bpy.ops.mesh.spin(steps=self.smoothness, dupli=False, angle=-self.angle * math.pi / 180, use_auto_merge=True, use_normal_flip=False, center=(0, -self.size, 0), axis=(0.0, 0.0, 1))
@@ -399,9 +405,9 @@ class SURGE_GenerateRamp(bpy.types.Operator):
                     
             bpy.ops.object.join()
             bpy.ops.object.editmode_toggle()
-            obj.name = self.ramp_name+'_phys'
+            obj.name = self.ramp_name+'_CLIP'
             obj = bpy.context.scene.objects["SURGEMesh"]
-            obj.name = self.ramp_name
+            obj.name = self.ramp_name+'_VIS'
             obj.select_set(True)      
 
         # Thin.
@@ -745,9 +751,9 @@ class SURGE_GenerateRamp(bpy.types.Operator):
             obj = bpy.context.view_layer.objects.active
             bpy.ops.object.join()
             bpy.ops.object.editmode_toggle()
-            obj.name = self.ramp_name+'_phys'
+            obj.name = self.ramp_name+'_CLIP'
             obj = bpy.context.scene.objects["SURGEMesh"]
-            obj.name = self.ramp_name
+            obj.name = self.ramp_name+'_VIS'
             obj.select_set(True)
                    
 #------------------------------------------------------------------------------------------------------
